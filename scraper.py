@@ -1,13 +1,7 @@
 # scraper.py
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-import time
-from dotenv import load_dotenv
+from playwright.async_api import async_playwright
 import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -15,41 +9,38 @@ MIBA_EMAIL = os.getenv("MIBA_EMAIL")
 MIBA_PASSWORD = os.getenv("MIBA_PASSWORD")
 MIBA_URL = os.getenv("MIBA_URL", "https://formulario-sigeci.buenosaires.gob.ar/InicioTramiteComun?idPrestacion=3154")
 
-def get_available_courts():
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-    driver.get(MIBA_URL)
-    wait = WebDriverWait(driver, 20)
+async def get_available_courts():
+    results = []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+        await page.goto(MIBA_URL)
 
-    try:
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//p[text()='Ingresar con CUIL / email']"))).click()
-        wait.until(EC.presence_of_element_located((By.NAME, "email"))).send_keys(MIBA_EMAIL)
-        driver.find_element(By.NAME, "password").send_keys(MIBA_PASSWORD)
-        driver.find_element(By.XPATH, "//button[contains(., 'Ingresar')]").click()
+        await page.click("text=Ingresar con CUIL / email")
+        await page.fill("input[name='email']", MIBA_EMAIL)
+        await page.fill("input[name='password']", MIBA_PASSWORD)
+        await page.click("button:has-text('Ingresar')")
 
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@data-start='primeros']//a[contains(text(), 'Comenzar')]"))).click()
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//label[text()='Ver como lista']"))).click()
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "listBody")))
+        await page.click("text=Comenzar")
+        await page.click("label:text('Ver como lista')")
+        await page.wait_for_selector("#listBody")
 
-        radio_buttons = driver.find_elements(By.CSS_SELECTOR, 'input[name="dateAndPlace"]')
-        results = []
+        radios = await page.query_selector_all('input[name="dateAndPlace"]')
 
-        for radio in radio_buttons:
-            if not radio.is_displayed():
+        for radio in radios:
+            visible = await radio.is_visible()
+            if not visible:
                 continue
-            driver.execute_script("arguments[0].scrollIntoView(true);", radio)
-            time.sleep(0.3)
-            try:
-                radio.click()
-            except:
-                continue
-            time.sleep(1)
 
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "hoursBody")))
+            await radio.scroll_into_view_if_needed()
+            await radio.click()
+            await page.wait_for_selector("#hoursBody")
 
-            date = radio.get_attribute("data-date")
-            court = radio.get_attribute("data-placename")
-            hour_inputs = driver.find_elements(By.CSS_SELECTOR, '#hoursBody input[name="hour"]')
-            times = [h.get_attribute("data-hour") for h in hour_inputs]
+            date = await radio.get_attribute("data-date")
+            court = await radio.get_attribute("data-placename")
+            hour_inputs = await page.query_selector_all('#hoursBody input[name="hour"]')
+            times = [await h.get_attribute("data-hour") for h in hour_inputs]
 
             results.append({
                 "date": date,
@@ -57,7 +48,5 @@ def get_available_courts():
                 "times": times
             })
 
-        return results
-
-    finally:
-        driver.quit()
+        await browser.close()
+    return results
