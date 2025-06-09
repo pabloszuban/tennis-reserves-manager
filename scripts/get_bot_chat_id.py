@@ -1,7 +1,11 @@
 import asyncio
 from telegram import Bot
+from dotenv import load_dotenv
+import os
 
-BOT_TOKEN = "7764497640:AAFOgJ2b98rbD3T_S-OrJymAD2SoH7KrGkQ"
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
 
 async def main():
