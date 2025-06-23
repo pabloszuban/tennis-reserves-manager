@@ -8,7 +8,6 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_IDS = os.getenv("CHAT_IDS").split(",") 
-INTERVAL = int(os.getenv("INTERVAL", "43200"))
 MIBA_URL = os.getenv("MIBA_URL", "https://formulario-sigeci.buenosaires.gob.ar/InicioTramiteComun?idPrestacion=3154")
 
 bot = Bot(token=BOT_TOKEN)
@@ -39,18 +38,18 @@ def format_msg(courts):
 async def send_telegram_message(mensaje, chat_id):
     await bot.send_message(chat_id, text=mensaje, parse_mode="HTML")
 
+# ✅ One-shot version suitable for Railway cronjob
 async def main():
     print("⏳ Searching for availability...")
-    while True:
-        courts = await get_available_courts()
-        if courts:
-            mensaje = format_msg(courts)
-            print("✅ Found available courts, sending Telegram Message...")
-            for chat_id in CHAT_IDS:
-                await send_telegram_message(mensaje, chat_id)
-        else:
-            print("❌ No available courts.")
-        await asyncio.sleep(INTERVAL)
+
+    courts = await get_available_courts()
+    if courts:
+        mensaje = format_msg(courts)
+        print("✅ Found available courts, sending Telegram Message...")
+        for chat_id in CHAT_IDS:
+            await send_telegram_message(mensaje, chat_id)
+    else:
+        print("❌ No available courts.")
 
 if __name__ == "__main__":
     asyncio.run(main())
