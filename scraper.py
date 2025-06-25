@@ -24,7 +24,7 @@ async def get_available_courts():
 
         await page.click("text=Comenzar")
         await page.click("label:text('Ver como lista')")
-        await page.wait_for_selector("#listBody")
+        await page.wait_for_selector("#listBody", timeout=10000)
 
         radios = await page.query_selector_all('input[name="dateAndPlace"]')
 

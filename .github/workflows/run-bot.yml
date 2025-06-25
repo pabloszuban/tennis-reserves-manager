@@ -34,4 +34,12 @@ jobs:
           MIBA_URL: ${{ secrets.MIBA_URL }}
           MIBA_EMAIL: ${{ secrets.MIBA_EMAIL }}
           MIBA_PASSWORD: ${{ secrets.MIBA_PASSWORD }}
-        run: ./start.sh
+        run: |
+          n=0
+          until [ "$n" -ge 3 ]
+          do
+            ./start.sh && break
+            n=$((n+1))
+            echo "Retry #$n..."
+            sleep 5
+          done
